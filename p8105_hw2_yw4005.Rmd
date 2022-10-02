@@ -1,0 +1,169 @@
+---
+title: "P8105 HW2"
+author: "Yijin Serena Wang"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+```{r, message = FALSE}
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(lubridate)
+```
+## Problem 1
+```{r}
+subway_data <- read_csv("https://p8105.com/data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv") %>%
+  # drops columns
+  select(-(last_col(offset = 8):last_col())) %>%
+  select(-Division,-`Exit Only`, -Staffing, -`Staff Hours`) %>%
+  clean_names() %>%
+  mutate(entry=ifelse(entry=="YES", TRUE, FALSE))
+
+```
+This data set contains information about stations in NYC subway system. Each station has its name, line and routes associated with it. It also has information about each entrance of a station. For each entrance, there is information about entry type, entrance type (stairs/elevator/easement), whether it has vending machines and ADA compliance. When cleaning thee data, I dropped the last 8 columns about more granular data for each entrance, and some other columns by instruction. Then I renamed all column names in camel case. The resulting dataset has `r ncol(subway_data)` columns and `r nrow(subway_data)` rows. It has a lot of repetitive information for each station across rows. It could be further cleaned.
+
+```{r}
+length(unique(subway_data$station_name))
+```
+There are 356 distinct stations. 
+```{r}
+length(unique(subway_data[subway_data$ada==TRUE,]$station_name))
+```
+
+73 of them are ADA compliant.
+
+```{r}
+length(unique(subway_data[subway_data$vending=="NO",]$station_name))/nrow(subway_data)
+```
+Approximately 4.98% of the station entrancs do not have vending machines.
+
+```{r reformat}
+cleaned_subway_data <- subway_data %>%
+  mutate_at(vars(starts_with("route")), as.character) %>%
+  pivot_longer(cols = starts_with("route"), 
+               names_to="route_number", 
+               values_to="route_name",
+               values_drop_na = TRUE)
+```
+
+```{r}
+length(unique(cleaned_subway_data[cleaned_subway_data$route_name=="A",]$station_name))
+```
+There are 56 distinct stations that serve the A train. 
+
+```{r}
+length(unique(
+  cleaned_subway_data[cleaned_subway_data$route_name=="A" &
+                        cleaned_subway_data$ada==TRUE,]$station_name))
+```
+16 of them are ADA compliant. 
+
+## Problem 2
+```{r Load Trash Data}
+mr_trash_wheel_data <- read_excel(
+  path="./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
+  sheet="Mr. Trash Wheel",
+  # drop image and notes
+  range="A2:N533") %>%
+  # clean names
+  clean_names() %>%
+  # filter data that are not specific to a dumpster
+  filter(!is.na(dumpster)) %>%
+  # round sports_balls column
+  mutate(sports_balls=as.integer(sports_balls),
+         # add extra column for combining data later on
+         trash_wheel = "Mr.")
+
+prof_trash_wheel_data <- read_excel(
+  path="./Data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
+  sheet="Professor Trash Wheel",
+  # drop image and notes
+  range="A2:N115") %>%
+  # clean names
+  clean_names() %>%
+  # filter data that are not specific to a dumpster
+  filter(!is.na(dumpster)) %>%
+  # round sports_balls column
+  mutate(sports_balls=as.integer(sports_balls),
+         # add extra column for combining data later on
+         trash_wheel = "Professor")
+
+# combine two data sets
+results <- mr_trash_wheel_data %>%
+  bind_rows(prof_trash_wheel_data)
+```
+Each data sets includes information about different types of trash in dumpsters that a trash wheel collected. There are two trash wheel: Mr.Trash Wheel and Professor Trash Wheel. The information includes specific date, weights, volumn and number of homes powered of a dumpster, and the number of each type of trash in it. These types include plastic bottles, polystyrene, cigarette butts, glass bottles, grocery bags, chip bags and sports balls. The combined `results` dataset has `r nrow(results)` rows and `r ncol(results)` columns of the information above. The total weight of trash collected by Professor Trash Wheel is `r sum(results[results$trash_wheel=="Professor",]$weight_tons)` tons. In 2020, the total weight of trash collected by Mr. Trash Wheel is `r sum(results[results$trash_wheel=="Mr." & results$year==2020,]$weight_tons)` tons.
+
+## Problem 3
+```{r pols-month}
+pols_month <- read_csv(
+  file="./Data/fivethirtyeight_datasets/pols-month.csv") %>%
+  # break a column into three columns
+  separate(col=mon, sep="-",into=c("year", "month","day")) %>%
+  mutate(
+    # convert month numbers to month names
+    month=lubridate::month(
+      as.integer(month),
+      label = TRUE, 
+      abbr= FALSE),
+    # convert characters to numeric data for mergining later on
+    year=as.integer(year)
+    ) %>%
+  # create president column from prez_dem and prez_gop
+  # pivot two columns names into the president column
+  pivot_longer(cols = c("prez_dem","prez_gop"), 
+               names_to = "president",
+               # keep dem and gop from columns names
+               names_prefix = "prez_")  %>%
+  # only keep the rows that has value of 1 from previous step
+  filter(value==1) %>%
+  # drop value column from pivot and day column
+  select(-value, -day)
+```
+```{r snp}
+snp <- read_csv(
+  file="./Data/fivethirtyeight_datasets/snp.csv") %>%
+  separate(col=date, sep="/",into=c("month", "day","year")) %>%
+  mutate(
+    # convert month numbers to month names
+    month=lubridate::month(
+      as.integer(month),
+      label = TRUE, 
+      abbr= FALSE),
+    # convert 2-digit year number to 4-digit year
+    year=lubridate::year(
+      # parse 2-digit year number to 4-digit year, with cutoff 15
+      lubridate::parse_date_time2(year,"%y", cutoff_2000 = 15))
+    ) %>%
+  # arrange/order data by year and month
+  arrange(year, month) %>%
+  # make year and month as leading columns
+  relocate(year, month, everything()) %>%
+  # remove day column for merging later on
+  select(-day)
+  
+```
+
+
+```{r unemployment}
+unemployment <- read_csv(
+  file="./Data/fivethirtyeight_datasets/unemployment.csv") %>%
+  # create a row for each month of a year and create a new column
+  # for unemployment rate
+  pivot_longer(-Year, 
+               names_to="month",
+               values_to = "unemployment_rate") %>%
+  # convert month abbreviations to month names
+  mutate(month=month.name[match(month,month.abb)]) %>%
+  # rename Year to year
+  rename(year=Year)
+```
+
+```{r merging}
+results <- pols_month %>%
+  left_join(snp, by = c("year", "month"))  %>%
+  left_join(unemployment, by = c("year", "month"))
+  
+```
+The `pols_month` data set keeps track of national politicians' party for each month in 1947-2015. The `snp` data set contains closing prices of S&P stock index for each month in 1950-2015. The `unemployment` data set has unemployment rate for each month in 1948-2015. The combined dataset has `r ncol(results)` columns and `r nrow(results)` rows. The range of years is `r range(results$year)[1]` to `r range(results$year)[2]`. The closing prices are in `close` column. Unemployment rates are in `unemployment_rate` column. Counts of politicians in Democratic/Republican parties are in columns specified for each political level and each party. 
