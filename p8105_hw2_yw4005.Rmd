@@ -112,12 +112,12 @@ prof_trash_wheel_data <- read_excel(path = "./Data/Trash Wheel Collection Data.x
 ```
 ```{r combine}
 # combine two data sets
-results <- mr_trash_wheel_data %>%
+combined_trash_data <- mr_trash_wheel_data %>%
   bind_rows(prof_trash_wheel_data)
 ```
-Each data sets includes information about different types of trash in dumpsters that a trash wheel collected. There are two trash wheel: Mr.Trash Wheel and Professor Trash Wheel. The information includes specific date, weights, volumn and number of homes powered of a dumpster, and the number of each type of trash in it. These types include plastic bottles, polystyrene, cigarette butts, glass bottles, grocery bags, chip bags and sports balls. The combined `results` dataset has `r nrow(results)` rows and `r ncol(results)` columns of the information above. 
+Each data sets includes information about different types of trash in dumpsters that a trash wheel collected. There are two trash wheel: Mr.Trash Wheel and Professor Trash Wheel. The information includes specific date, weights, volumn and number of homes powered of a dumpster, and the number of each type of trash in it. These types include plastic bottles, polystyrene, cigarette butts, glass bottles, grocery bags, chip bags and sports balls. The final `combined_trash_data` dataset has `r nrow(combined_trash_data)` rows and `r ncol(combined_trash_data)` columns of the information above. 
 ```{r}
-results %>%
+combined_trash_data %>%
   filter(trash_wheel=="Professor") %>%
   pull(weight_tons) %>%
   sum
@@ -125,8 +125,8 @@ results %>%
 The total weight of trash collected by Professor Trash Wheel is 190.12 tons. 
 
 ```{r}
-results %>%
-  filter(trash_wheel=="Mr." & results$year==2020) %>%
+combined_trash_data %>%
+  filter(trash_wheel=="Mr." & year==2020) %>%
   pull(sports_balls) %>%
   sum
   
@@ -211,9 +211,9 @@ unemployment <- read_csv(file = "./Data/fivethirtyeight_datasets/unemployment.cs
 
 ```{r merging}
 # combine datasets
-results <- pols_month %>%
+combined_fivethirtyeight <- pols_month %>%
   left_join(snp, by = c("year", "month"))  %>%
   left_join(unemployment, by = c("year", "month"))
   
 ```
-The `pols_month` data set keeps track of national politicians' party for each month in 1947-2015. The `snp` data set contains closing prices of S&P stock index for each month in 1950-2015. The `unemployment` data set has unemployment rate for each month in 1948-2015. The combined dataset has `r ncol(results)` columns and `r nrow(results)` rows. The range of years is `r range(results$year)[1]` to `r range(results$year)[2]`. The closing prices are in `close` column. Unemployment rates are in `unemployment_rate` column. Counts of politicians in Democratic/Republican parties are in columns specified for each political level and each party. 
+The `pols_month` data set keeps track of national politicians' party for each month in 1947-2015. The `snp` data set contains closing prices of S&P stock index for each month in 1950-2015. The `unemployment` data set has unemployment rate for each month in 1948-2015. The combined dataset has `r ncol(combined_fivethirtyeight)` columns and `r nrow(combined_fivethirtyeight)` rows. The range of years is `r range(combined_fivethirtyeight$year)[1]` to `r range(combined_fivethirtyeight$year)[2]`. The closing prices are in `close` column. Unemployment rates are in `unemployment_rate` column. Counts of politicians in Democratic/Republican parties are in columns specified for each political level and each party. 
